@@ -49,6 +49,7 @@ class DinoV2ExtractFeatures:
             - device:   PyTorch device to use
         """
         self.vit_type: str = dino_model
+        # 这个是直接从该github上的facebookresearch/dinov2仓库来导入模型，只要一个仓库中有hubconf.py，就可以当成一个模型从githhub上导入
         self.dino_model: nn.Module = torch.hub.load(
                 'facebookresearch/dinov2', dino_model)
         self.device = torch.device(device)

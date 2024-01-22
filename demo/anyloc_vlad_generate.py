@@ -100,7 +100,7 @@ def download_test_data(use_odrive:bool):
 def main(largs: LocalArgs):
     # Basic utilities
     _ex = lambda x: os.path.realpath(os.path.expanduser(x))
-    
+    # 这个函数不过是将输入的路径转换为绝对路径
     # Ensure that cache and data is there
     download_cache()
     if largs.use_example:
@@ -117,7 +117,7 @@ def main(largs: LocalArgs):
     desc_facet: Literal["query", "key", "value", "token"] = "value"
     num_c: int = largs.num_c
     # Domain for use case (deployment environment)
-    domain: largs.domain
+    domain: Literal["aerial", "indoor", "urban"] = largs.domain
     # Maximum image dimension
     max_img_size: int = largs.max_img_size
     # Ensure inputs are fine
@@ -129,7 +129,7 @@ def main(largs: LocalArgs):
     
     # Load the DINO extractor model
     extractor = DinoV2ExtractFeatures("dinov2_vitg14", desc_layer,
-        desc_facet, device=device)
+        desc_facet, device=device)  #if the model is not cached, it will be downloaded
     base_tf = tvf.Compose([ # Base image transformations
         tvf.ToTensor(),
         tvf.Normalize(mean=[0.485, 0.456, 0.406], 
@@ -162,6 +162,7 @@ def main(largs: LocalArgs):
         with torch.no_grad():
             pil_img = Image.open(img_fname).convert('RGB')
             img_pt = base_tf(pil_img).to(device)
+            # img_pt.shape[-2:]表示提取shape的后两个元素，也就是图片的长和宽
             if max(img_pt.shape[-2:]) > max_img_size:
                 c, h, w = img_pt.shape
                 # Maintain aspect ratio
@@ -176,8 +177,14 @@ def main(largs: LocalArgs):
                         interpolation=T.InterpolationMode.BICUBIC)
                 print(f"Resized {img_fname} to {img_pt.shape = }")
             # Make image patchable (14, 14 patches)
+            # 这段代码的主要目的是对一个图像进行中心裁剪，使其尺寸可以被14整除
             c, h, w = img_pt.shape
+            # ‘//’表示计算除法的整数部分
             h_new, w_new = (h // 14) * 14, (w // 14) * 14
+            '''
+            CenterCrop函数返回一个函数，你可以直接调用这个函数对图像进行裁剪。在这个例子中，被裁剪的图像是img_pt。
+            最后，[None, ...]是Python的广播语法，用于在img_pt的前面添加一个新的维度。这个应该是为了满足extractor的输入要求。
+            '''
             img_pt = tvf.CenterCrop((h_new, w_new))(img_pt)[None, ...]
             # Extract descriptor
             ret = extractor(img_pt) # [1, num_patches, desc_dim]
