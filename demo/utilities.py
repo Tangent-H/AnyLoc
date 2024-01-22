@@ -29,6 +29,10 @@ od_down_links = {
 _DINO_V2_MODELS = Literal["dinov2_vits14", "dinov2_vitb14", \
                         "dinov2_vitl14", "dinov2_vitg14"]
 _DINO_FACETS = Literal["query", "key", "value", "token"]
+
+# 定义本地模型路径
+local_model_path = '../dinov2'
+
 class DinoV2ExtractFeatures:
     """
         Extract features from an intermediate layer in Dino-v2
@@ -50,8 +54,19 @@ class DinoV2ExtractFeatures:
         """
         self.vit_type: str = dino_model
         # 这个是直接从该github上的facebookresearch/dinov2仓库来导入模型，只要一个仓库中有hubconf.py，就可以当成一个模型从githhub上导入
-        self.dino_model: nn.Module = torch.hub.load(
-                'facebookresearch/dinov2', dino_model)
+        # self.dino_model: nn.Module = torch.hub.load(
+        #         'facebookresearch/dinov2', dino_model)
+        
+        # 检查本地是否存在模型文件
+        if not os.path.exists(local_model_path):
+            # 本地不存在模型文件，从 GitHub 上下载并保存到本地
+            self.dino_model: nn.Module = torch.hub.load('facebookresearch/dinov2', dino_model)
+        else:
+            # 本地已存在模型文件，直接加载本地模型
+            self.dino_model = torch.hub.load(local_model_path, dino_model,source='local')  # 用你的模型类初始化
+            # self.dino_model.load_state_dict(torch.load(local_model_path))
+
+
         self.device = torch.device(device)
         self.dino_model = self.dino_model.eval().to(self.device)
         self.layer: int = layer
@@ -74,6 +89,10 @@ class DinoV2ExtractFeatures:
             self._hook_out = output
         return _forward_hook
     
+    '''
+    这个函数是一个特殊的方法，称为__call__，它定义了一个类的实例可以像函数一样被调用。
+    在这个例子中，这个方法接受一个名为img的参数，类型为torch.Tensor，并返回一个torch.Tensor类型的值。
+    '''
     def __call__(self, img: torch.Tensor) -> torch.Tensor:
         """
             Parameters:
